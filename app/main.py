@@ -63,10 +63,6 @@ async def convert_audio_to_binary(audio: AudioSegment, extension):
 
 @app.get("/")
 def health():
-    with engine.connect() as connection:
-        files = connection.execute(text("SELECT * FROM File"))
-        for file in files:
-            print(file)
     return {"Message": "Ok"}
 
 

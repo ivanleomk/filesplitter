@@ -26,8 +26,8 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - run: |
-          docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/fastapi-image:${{ github.sha }}
-          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/fastapi-image:${{ github.sha }}
+          docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{secrets.IMAGE_NAME}}:${{ github.sha }}
+          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{secrets.IMAGE_NAME}}:${{ github.sha }}
 
       - name: "Deploy to Azure Container Instances"
         uses: "azure/aci-deploy@v1"
@@ -35,13 +35,14 @@ jobs:
           resource-group: ${{ secrets.RESOURCE_GROUP }}
           dns-name-label: ${{ secrets.RESOURCE_GROUP }}${{ github.run_number }}
           image:
-            ${{ secrets.REGISTRY_LOGIN_SERVER }}/fastapi-image:${{ github.sha }}
+            ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{secrets.IMAGE_NAME}}:${{
+            github.sha }}
           registry-login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
           registry-username: ${{ secrets.REGISTRY_USERNAME }}
           registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-          name: aci-fastapi-image
-          location: "west us"
-          app-settings: |
+          name: ${{secrets.DEPLOYMENT_NAME}}
+          location: "ap-southeast-1"
+          secure-environment-variables: |
             SECRET_JWT_KEY=${{secrets.SECRET_JWT_KEY}}
             OPENAI_API_KEY=${{secrets.OPENAI_API_KEY}}
             AWS_ACCESS_KEY_ID=${{secrets.AWS_ACCESS_KEY_ID}}

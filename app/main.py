@@ -1,4 +1,4 @@
-from typing_extensions import Annotated
+from fastapi import BackgroundTasks
 from fastapi import FastAPI
 from pydub import AudioSegment
 from fastapi import FastAPI, File, UploadFile
@@ -64,9 +64,8 @@ async def generate_summary(text: str):
     return {"message": "OK"}
 
 
-@app.post("/generate-transcript")
-async def create_upload_file(key: str):
-    # We first download a file using boto
+async def create_transcript(key: str):
+    print(f"Starting to generate transcript with key of {key}")
     start_time = time.time()
     _, ext = os.path.splitext(key)
     if ext != ".mp3" and ext != ".mp4":
@@ -79,7 +78,7 @@ async def create_upload_file(key: str):
         audio = AudioSegment.from_file(temp_file.name, ext[1:])
         print(f"Audio has a length of {len(audio)/1000}")
         second = 1 * 1000
-        step = 240 * second
+        step = 120 * second
         overlap = 2 * second
         curr = 0
         chunks = []
@@ -90,27 +89,17 @@ async def create_upload_file(key: str):
         print(f"Generated {len(chunks)} chunks")
         jobs = [convert_audio_to_binary(chunk, ext) for chunk in chunks]
         res = await asyncio.gather(*jobs)
+        transcript = " ".join(res)
+        print(f"Generated Transcript was {res}")
         print(
             "Time took to process the request and return response is {} sec".format(
                 time.time() - start_time
             )
         )
-        return {"Data": " ".join(res)}
 
-    # start_time = time.time()
-    # _, ext = os.path.splitext(file.filename)
-    # match (ext):
-    #     case ".mp4" | ".mp3":
-    #         with tempfile.NamedTemporaryFile(delete=True) as temp_file:
-    #             temp_file.write(await file.read())
-    #             temp_file.seek(0)
 
-    #             audio = AudioSegment.from_file(temp_file.name, ext[1:])
-
-    #             print(f"Audio has a length of {len(audio)/1000}")
-    #             # We provide it in the form of 5 min chunks
-    #             chunks = []
-    #             # Time expressed in seconds and
-
-    #     case _:
-    #         return {"Mesage": "Invalid File Format"}
+@app.post("/generate-transcript")
+async def create_upload_file(key: str, background_tasks: BackgroundTasks):
+    print(f"Recieved request to generate transcript for {key}")
+    background_tasks.add_task(create_transcript, key)
+    return {"Message": "Ok"}

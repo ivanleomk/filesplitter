@@ -10,6 +10,11 @@ import asyncio
 import time
 from fastapi.middleware.cors import CORSMiddleware
 import boto3
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from .models import File as FileObject
+from sqlalchemy.sql.expression import func
+from datetime import datetime
 
 
 class Settings(BaseSettings):
@@ -24,6 +29,9 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str
     REGION: str
     BUCKET_NAME: str
+
+    # Database Stuff
+    DATABASE_URL: str
 
     class Config:
         env_file = ".env"
@@ -40,6 +48,9 @@ s3 = boto3.client(
     aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
 )
 
+# make sure to append +mysqlconnector to the db string
+engine = create_engine(settings.DATABASE_URL, echo=True)
+
 
 async def convert_audio_to_binary(audio: AudioSegment, extension):
     print(f"Generating audio segment now with parameters extension:{extension}")
@@ -52,6 +63,10 @@ async def convert_audio_to_binary(audio: AudioSegment, extension):
 
 @app.get("/")
 def health():
+    with engine.connect() as connection:
+        files = connection.execute(text("SELECT * FROM File"))
+        for file in files:
+            print(file)
     return {"Message": "Ok"}
 
 
@@ -67,9 +82,36 @@ async def generate_summary(text: str):
 async def create_transcript(key: str):
     print(f"Starting to generate transcript with key of {key}")
     start_time = time.time()
+
     _, ext = os.path.splitext(key)
     if ext != ".mp3" and ext != ".mp4":
         raise ValueError("Invalid Key")
+
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    file = (
+        session.query(FileObject)
+        .filter(func.trim(FileObject.key) == key.replace("\t", ""))
+        .first()
+    )
+
+    # We verify that there is a file object. Else we create one
+    if not file:
+        file = FileObject(
+            key=key, url=f"https://schulz.s3.ap-southeast-1.amazonaws.com/{key}"
+        )
+        session.add(file)
+        session.commit()
+    else:
+        if file.isTranscribed:
+            print("Cannot transcribe an audio track twice")
+            return
+
+    # Now we start a mutex lock on it
+    file.isProcessing = True
+    file.startedprocessing = datetime.now()
+    session.commit()
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
         s3.download_fileobj(settings.BUCKET_NAME, key, temp_file)
@@ -90,6 +132,12 @@ async def create_transcript(key: str):
         jobs = [convert_audio_to_binary(chunk, ext) for chunk in chunks]
         res = await asyncio.gather(*jobs)
         transcript = " ".join(res)
+
+        file.isProcessing = False
+        file.isTranscribed = True
+        file.transcript = transcript
+        session.commit()
+
         print(f"Generated Transcript was {res}")
         print(
             "Time took to process the request and return response is {} sec".format(

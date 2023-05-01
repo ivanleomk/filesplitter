@@ -14,7 +14,9 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from .models import File as FileObject
 from sqlalchemy.sql.expression import func
-from datetime import datetime
+from datetime import datetime, timedelta
+
+THRESHOLD = timedelta(minutes=30)
 
 
 class Settings(BaseSettings):
@@ -103,6 +105,20 @@ async def create_transcript(key: str):
         if file.isTranscribed:
             print("Cannot transcribe an audio track twice")
             return
+
+        if file.isProcessing:
+            print("Existing Mutex Lock....")
+            elapsed_time = datetime.now() - file.startedprocessing
+            minutes = int(elapsed_time.total_seconds() // 60)
+            seconds = int(elapsed_time.total_seconds() % 60)
+            if elapsed_time < THRESHOLD:
+                print(
+                    f"{minutes} minutes and {seconds} seconds have passed. Threshold is 30 minutes."
+                )
+                return
+            print(
+                f"{minutes} minutes and {seconds} seconds have passed. Ignoring Mutex Lock"
+            )
 
     # Now we start a mutex lock on it
     file.isProcessing = True

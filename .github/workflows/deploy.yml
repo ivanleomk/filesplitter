@@ -25,6 +25,11 @@ jobs:
 
       - name: Push Docker image
         run: docker push ${{ secrets.ACR_LOGIN_SERVER }}/my-image
+      
+      - name: 'Login via Azure CLI'
+          uses: azure/login@v1
+          with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2

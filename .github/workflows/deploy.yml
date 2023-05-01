@@ -41,7 +41,7 @@ jobs:
           registry-username: ${{ secrets.REGISTRY_USERNAME }}
           registry-password: ${{ secrets.REGISTRY_PASSWORD }}
           name: ${{secrets.DEPLOYMENT_NAME}}
-          location: "ap-southeast-1"
+          location: "southeastasia"
           secure-environment-variables: |
             SECRET_JWT_KEY=${{secrets.SECRET_JWT_KEY}}
             OPENAI_API_KEY=${{secrets.OPENAI_API_KEY}}

@@ -44,8 +44,6 @@ jobs:
           registry-password: ${{ secrets.REGISTRY_PASSWORD }}
           name: ${{secrets.STAGING_DEPLOYMENT}}
           location: "southeastasia"
-          environment:
-            name: "Staging"
           secure-environment-variables: |
             SECRET_JWT_KEY=${{secrets.SECRET_JWT_KEY}}
             OPENAI_API_KEY=${{secrets.OPENAI_API_KEY}}
@@ -70,8 +68,6 @@ jobs:
           registry-username: ${{ secrets.REGISTRY_USERNAME }}
           registry-password: ${{ secrets.REGISTRY_PASSWORD }}
           name: ${{secrets.DEPLOYMENT_NAME}}
-          environment:
-            name: "Production"
           location: "southeastasia"
           secure-environment-variables: |
             SECRET_JWT_KEY=${{secrets.SECRET_JWT_KEY}}

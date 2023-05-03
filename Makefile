@@ -5,7 +5,9 @@ build-image:
 	docker build -t schulz-backend .
 
 run-container:
-	docker run -d -p 80:80 --name schulz-backend --env-file .env schulz-backend 
-
+	-docker stop schulz-backend     # Stop the container if it exists (ignores errors if the container doesn't exist)
+	-docker rm schulz-backend       # Remove the container if it exists (ignores errors if the container doesn't exist)
+	docker run -d -p 80:80 --name schulz-backend --env-file .env schulz-backend
+	
 restart:
 	docker build -t schulz-backend . && docker stop schulz-backend && docker container prune -f && docker run -d -p 80:80 --env-file .env --name schulz-backend schulz-backend

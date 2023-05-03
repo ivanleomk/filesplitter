@@ -94,6 +94,7 @@ async def generate_summary():
 async def delete_file(key: str):
     # We validate that a file exists
     try:
+        print(f"Recieved request to delete {key}")
         res = s3.delete_object(Bucket=settings.BUCKET_NAME, Key=key)
         print(res)
         return {"Message": "Ok"}

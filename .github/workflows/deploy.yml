@@ -30,8 +30,7 @@ jobs:
           docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{secrets.IMAGE_NAME}}:v1
 
       - name: "Staging Deployment"
-        environment:
-          name: "Staging"
+        environment: Staging
         uses: "azure/aci-deploy@v1"
         with:
           resource-group: ${{ secrets.RESOURCE_GROUP }}
@@ -52,8 +51,7 @@ jobs:
             DATABASE_URL=${{secrets.STAGING_DATABASE_URL}}
 
       - name: "Production Deployment"
-        environment:
-          name: "Production"
+        environment: Production
         uses: "azure/aci-deploy@v1"
         with:
           resource-group: ${{ secrets.RESOURCE_GROUP }}

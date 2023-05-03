@@ -77,6 +77,18 @@ async def generate_summary(text: str):
     return {"message": "OK"}
 
 
+@app.post("/delete-file")
+async def delete_file(key: str):
+    # We validate that a file exists
+    try:
+        res = s3.Object(settings.BUCKET_NAME, key).delete()
+        print(res)
+        return {"Message": "Ok"}
+    except Exception as e:
+        print(e)
+        return {"Error": "Unable to delete file"}
+
+
 async def create_transcript(key: str):
     print(f"Starting to generate transcript with key of {key}")
     start_time = time.time()
@@ -96,11 +108,8 @@ async def create_transcript(key: str):
 
     # We verify that there is a file object. Else we create one
     if not file:
-        file = FileObject(
-            key=key, url=f"https://schulz.s3.ap-southeast-1.amazonaws.com/{key}"
-        )
-        session.add(file)
-        session.commit()
+        print("--File could not be found")
+        return
     else:
         if file.isTranscribed:
             print("Cannot transcribe an audio track twice")
@@ -126,7 +135,17 @@ async def create_transcript(key: str):
     session.commit()
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
-        s3.download_fileobj(settings.BUCKET_NAME, key, temp_file)
+        try:
+            obj = s3.Object(settings.BUCKET_NAME, key).load()
+            if not obj:
+                print(f"File with key:{key} does not exist ")
+                return
+            s3.download_fileobj(settings.BUCKET_NAME, key, temp_file)
+        except Exception as e:
+            print("File could not be found")
+            file.isProcessing = False
+            session.commit()
+
         print(temp_file.name)
         # # s3.download_file(settings.BUCKET_NAME, key, "./test.mp4")
         audio = AudioSegment.from_file(temp_file.name, ext[1:])

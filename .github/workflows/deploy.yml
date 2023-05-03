@@ -34,6 +34,10 @@ jobs:
     environment:
       name: Staging
     steps:
+      - name: "Login via Azure CLI"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: "Staging Deployment"
         uses: "azure/aci-deploy@v1"
         with:
@@ -60,6 +64,10 @@ jobs:
     environment:
       name: Production
     steps:
+      - name: "Login via Azure CLI"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: "Production Deployment"
         uses: "azure/aci-deploy@v1"
         with:

@@ -30,6 +30,7 @@ jobs:
 
   deployStaging:
     runs-on: ubuntu-latest
+    needs: generateImage
     environment:
       name: Staging
     steps:
@@ -55,6 +56,7 @@ jobs:
 
   deployProd:
     runs-on: ubuntu-latest
+    needs: generateImage
     environment:
       name: Production
     steps:

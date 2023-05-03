@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  Build and Generate Image:
+  generateImage:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -28,7 +28,7 @@ jobs:
           docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{secrets.IMAGE_NAME}}:v1
           docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{secrets.IMAGE_NAME}}:v1
 
-  Staging Deployment:
+  deployStaging:
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -53,7 +53,7 @@ jobs:
             BUCKET_NAME=${{secrets.STAGING_BUCKET_NAME}}
             DATABASE_URL=${{secrets.STAGING_DATABASE_URL}}
 
-  Production Deployment:
+  deployProd:
     runs-on: ubuntu-latest
     environment:
       name: Production

@@ -4,7 +4,7 @@ from pydub import AudioSegment
 from fastapi import FastAPI, File, UploadFile
 import os
 import tempfile
-from pydantic import BaseModel, BaseSettings
+from pydantic import BaseModel, BaseSettings, Field
 import openai
 import asyncio
 import time
@@ -19,6 +19,11 @@ from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 import typing as t
 from fastapi.security import OAuth2PasswordBearer
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
+from langchain.output_parsers import PydanticOutputParser
+import json
+
 
 THRESHOLD = timedelta(minutes=30)
 
@@ -62,6 +67,27 @@ s3 = boto3.client(
     aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
     aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
 )
+model_name = 'text-davinci-003'
+temperature = 0.2
+model = OpenAI(model_name=model_name, temperature=temperature, openai_api_key=settings.OPENAI_API_KEY)
+
+class PromptRequest(BaseModel):
+    notes: str
+
+class RePromptRequest(BaseModel):
+    notes: str
+    reprompt: str
+    previousResponse: str
+
+
+# Pydantic datastructures
+class Summary(BaseModel):
+    date: str = Field(description = "date of conversation")
+    prospect: str = Field(description = "comma separated list of name(s) of prospect(s)")
+    company: str = Field(description = "name(s) of company or organisation that prospect(s) work for")
+    summary: str = Field(description = "efficiently summarised conversation, detailed, specific, non-verbose")
+    actions: str = Field(description = "comma separated list of efficiently summarised actionables, non-verbose")
+
 
 # make sure to append +mysqlconnector to the db string
 engine = create_engine(settings.DATABASE_URL, echo=True)
@@ -82,13 +108,65 @@ def health():
 
 
 @app.post("/generate-summary", dependencies=[Depends(api_key_auth)])
-async def generate_summary():
-    start_time = time.time()
+async def generate_summary(request: PromptRequest):
+    print("---Generating Summary")
+    data = request.dict()
+    notes = data['notes']
 
-    prompt_template = """Write a concise summary of the following:"""
+    parser = PydanticOutputParser(pydantic_object=Summary)
 
-    return {"message": "OK"}
+    prompt = PromptTemplate(
+        template="Please extract the required information accurately and match the specified field names and descriptions. Only use information explicitly stated and return '' if information cannot be found.\n{format_instructions}\nHere are the meeting notes:\n{summary}",
+        input_variables=["summary"],
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
 
+    output = model(prompt.format(summary=notes))
+    print(output)
+    print({"summary": parser.parse(output)})
+
+    return {"summary": parser.parse(output)}
+
+
+# async def summarize(request, notes):
+#     print("---Generating Summary")
+#     data = await request.json()
+#     notes = data['notes']
+
+#     parser = PydanticOutputParser(pydantic_object=Summary)
+
+#     prompt = PromptTemplate(
+#         template="Please extract the required information accurately and match the specified field names and descriptions. Only use information explicitly stated and return '' if information cannot be found.\n{format_instructions}\nHere are the meeting notes:\n{summary}",
+#         input_variables=["summary"],
+#         partial_variables={"format_instructions": parser.get_format_instructions()}
+#     )
+
+#     output = model(prompt.format(summary=notes))
+
+#     return {"summary": parser.parse(output)}
+
+@app.post("/reprompt-summary", dependencies=[Depends(api_key_auth)])
+async def reprompt(request: RePromptRequest):
+    print("---Re-generating Summary")
+    data = request.dict()
+    notes = data['notes']
+    reprompt = data['reprompt']
+    previousResponse = data['previousResponse']
+
+    parser = PydanticOutputParser(pydantic_object=Summary)
+
+    prompt = PromptTemplate(
+        template="Extract the required information accurately, matching the specified field names and descriptions. Only use explicitly stated information and return '' if any information cannot be found.\nFormat Instructions:{format_instructions}\nMeeting Notes:{summary}\nPlease revise your previous response: {previous_response} using the following instructions: {reprompt}",
+        input_variables=["summary", "previous_response", "reprompt"],
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+
+    output = model(
+        prompt.format(summary=notes,
+                      reprompt=reprompt,
+                      previous_response=json.dumps(previousResponse)))
+
+    return {"summary": parser.parse(output)}
 
 @app.post("/delete-file", dependencies=[Depends(api_key_auth)])
 async def delete_file(key: str):

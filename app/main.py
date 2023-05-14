@@ -79,6 +79,18 @@ class RePromptRequest(BaseModel):
     reprompt: str
     previousResponse: str
 
+class ActionRequest(BaseModel):
+    notes: str
+    previousResponse: str
+
+class ActionResponse(BaseModel):
+    recipient: t.List[str] = Field(description = "comma separated list of name(s) of recipient(s)")
+    email: str = Field(description = "verbose, complete, eloquent follow-up email to be sent to recipient(s)")
+    collaterals: str = Field(description = "comma separated list of description of possible collaterals to be created and to be sent to recipient(s)")
+
+class ActionResponseList(BaseModel):
+    actions: t.List[ActionResponse] = Field(description = "list of possible emails to be sent to recipient(s)")
+
 
 # Pydantic datastructures
 class Summary(BaseModel):
@@ -121,11 +133,34 @@ async def generate_summary(request: PromptRequest):
         partial_variables={"format_instructions": parser.get_format_instructions()}
     )
 
+    print(prompt.format(summary=notes))
+
     output = model(prompt.format(summary=notes))
     print(output)
     print({"summary": parser.parse(output)})
 
     return {"summary": parser.parse(output)}
+
+
+@app.post("/generate-actions", dependencies=[Depends(api_key_auth)])
+async def generate_actions(request: ActionRequest):
+    print("---Generating Actions")
+    data = request.dict()
+    notes = data['notes']
+    previousResponse = data['previousResponse']
+
+    parser = PydanticOutputParser(pydantic_object=ActionResponse)
+
+    prompt = PromptTemplate(
+        template="Please help generate good follow-up emails for the meeting. Except for collaterals, only use information explicitly stated and return '' if information cannot be found.\n{format_instructions}\nHere are the meeting notes:\n{summary}\n Here is an effective summary of those notes: {previous_response}",
+        input_variables=["summary", "previous_response"],
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+
+    output = model(prompt.format(summary=notes, previous_response=previousResponse))
+    print(output)
+    print({"actions": parser.parse(output)})
+    return {"actions": parser.parse(output)}
 
 
 # async def summarize(request, notes):
